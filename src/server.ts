@@ -1,4 +1,5 @@
 import index from "../public/index.html"
+import './database-connect'
 
 import { routes } from './routes'
 import { Hono } from 'hono'
