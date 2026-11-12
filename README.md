@@ -5,7 +5,7 @@ Trabalho acadêmico de Desenvolvimento Web II, do curso de Sistemas de Informaç
 ## Etapa 1 — Estrutura inicial
 
 Servidor HTTP com Bun, TypeScript e Hono, exibindo uma página HTML inicial.
-ArkType está instalado para as validações das próximas etapas.
+ArkType é usado para validar os dados recebidos pelas rotas.
 
 O projeto segue o [exemplo do professor](https://github.com/prfdnl/2026-bsi24-webdev2):
 `Bun.serve`, importação direta do HTML, aplicação Hono e agrupamento de rotas.
@@ -18,10 +18,11 @@ public/
   index.html
 src/
   controllers/
-    .gitkeep
+    contato.ts
   middleware/
-    .gitkeep
+    inputTest.ts
   routes/
+    contato.ts
     index.ts
   database-connect.ts
   server.ts
@@ -32,8 +33,8 @@ tsconfig.json
 README.md
 ```
 
-Os arquivos `.gitkeep` permitem versionar pastas ainda vazias.
-Controllers e middleware serão implementados quando houver operações de dados.
+Os controllers executam SQL, as rotas associam os caminhos às funções e
+o middleware valida a entrada, seguindo a organização do professor.
 
 ## Etapa 2 — Banco de dados
 
@@ -66,6 +67,50 @@ ou mudanças na interface.
 O TypeScript é uma dependência de desenvolvimento para conferir os tipos;
 o Bun executa os arquivos `.ts` diretamente. A configuração segue o exemplo,
 sem a opção JSX, pois a interface usa HTML simples.
+
+## Etapa 3 — CRUD de contatos
+
+`src/controllers/contato.ts` exporta `create`, `listAll`, `listOne`,
+`updateOne` e `deleteOne`. As consultas usam SQL com parâmetros nomeados,
+como no exemplo do professor. `src/routes/contato.ts` define as rotas e
+`src/routes/index.ts` as reúne na aplicação.
+
+O middleware `ffInputType`, em `src/middleware/inputTest.ts`, segue o exemplo
+com ArkType. Também trata JSON inválido e permite validar parâmetros de rotas
+GET e DELETE sem exigir um corpo JSON.
+
+| Método | Caminho | Operação | Sucesso |
+| --- | --- | --- | --- |
+| POST | /contato | Cadastrar | 201, resultado da inserção com lastInsertRowid |
+| GET | /contato | Listar todos | 200, lista de contatos |
+| GET | /contato/:id | Consultar um | 200, contato |
+| PUT | /contato/:id | Editar | 200, resultado da atualização |
+| DELETE | /contato/:id | Excluir | 204, sem corpo |
+
+No cadastro e na edição, `nome` é obrigatório e não pode ser vazio.
+`email` é opcional e deve ser válido quando informado; `categoria_id` é
+opcional e deve ser um inteiro positivo correspondente a uma categoria existente.
+Ambos aceitam `null`. O PUT substitui os campos: email e categoria omitidos
+ficam `null`. Os IDs da URL são validados como strings numéricas.
+
+Entradas inválidas retornam 400; contatos inexistentes retornam 404.
+A exclusão de um contato com telefones ou endereços vinculados retorna 409.
+Ainda não há rotas para gerenciar as outras tabelas nem interface de cadastro.
+
+Com o servidor iniciado, teste no PowerShell:
+
+```powershell
+$body = @{ nome = "Maria"; email = "maria@example.com" } | ConvertTo-Json
+$novo = Invoke-RestMethod -Method Post -Uri http://localhost:3000/contato -ContentType 'application/json' -Body $body
+$contatoId = $novo.lastInsertRowid
+Invoke-RestMethod http://localhost:3000/contato
+Invoke-RestMethod "http://localhost:3000/contato/$contatoId"
+$body = @{ nome = "Maria Silva" } | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri "http://localhost:3000/contato/$contatoId" -ContentType 'application/json' -Body $body
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/contato/$contatoId"
+```
+
+Esses comandos cadastram um contato real e o removem ao final.
 
 ## Executar
 
@@ -106,8 +151,14 @@ Commit da etapa 1:
 chore: estrutura inicial da agenda telefonica
 ```
 
-Commit sugerido para a etapa 2:
+Commit da etapa 2:
 
 ```text
 feat: cria tabelas e relacionamentos da agenda telefonica
+```
+
+Commit sugerido para a etapa 3:
+
+```text
+feat: implementa crud de contatos
 ```
