@@ -1,0 +1,19 @@
+{
+  "name": "agenda-telefonica",
+  "module": "src/server.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/server.ts",
+    "dev": "bun --hot src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "arktype": "^2.2.3",
+    "hono": "^4.13.9"
+  }
+}
