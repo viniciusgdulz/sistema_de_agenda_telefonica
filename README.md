@@ -18,11 +18,17 @@ public/
   index.html
 src/
   controllers/
+    categoria.ts
     contato.ts
+    endereco.ts
+    telefone.ts
   middleware/
     inputTest.ts
   routes/
+    categoria.ts
     contato.ts
+    endereco.ts
+    telefone.ts
     index.ts
   database-connect.ts
   server.ts
@@ -95,7 +101,7 @@ ficam `null`. Os IDs da URL são validados como strings numéricas.
 
 Entradas inválidas retornam 400; contatos inexistentes retornam 404.
 A exclusão de um contato com telefones ou endereços vinculados retorna 409.
-Ainda não há rotas para gerenciar as outras tabelas nem interface de cadastro.
+Ainda não há interface de cadastro.
 
 Com o servidor iniciado, teste no PowerShell:
 
@@ -111,6 +117,104 @@ Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/contato/$contatoId"
 ```
 
 Esses comandos cadastram um contato real e o removem ao final.
+
+## Etapa 4 — CRUD de telefones
+
+`src/controllers/telefone.ts` mantém as funções `create`, `listAll`, `listOne`,
+`updateOne` e `deleteOne`, com SQL parametrizado. As rotas ficam em
+`src/routes/telefone.ts` e usam o mesmo middleware ArkType dos contatos.
+
+| Método | Caminho | Operação | Sucesso |
+| --- | --- | --- | --- |
+| POST | /telefone | Cadastrar | 201, resultado com lastInsertRowid |
+| GET | /telefone | Listar todos | 200, lista de telefones |
+| GET | /telefone/:id | Consultar um | 200, telefone |
+| PUT | /telefone/:id | Editar | 200, resultado da atualização |
+| DELETE | /telefone/:id | Excluir | 204, sem corpo |
+
+Cadastro e edição exigem `contato_id` inteiro positivo de um contato existente,
+`numero` e `tipo` como textos não vazios. O número preserva zeros, sinal de `+`
+e formatação; o tipo é livre, por exemplo `celular`, `fixo` ou `comercial`.
+O PUT exige os três campos e permite transferir o telefone para outro contato.
+Um contato pode ter vários telefones.
+
+Entradas inválidas e contatos associados inexistentes retornam 400.
+Telefones inexistentes retornam 404. Excluir um telefone preserva seu contato;
+para excluir um contato, remova antes os telefones e endereços vinculados.
+A interface continua para uma próxima etapa.
+
+Com o servidor iniciado, teste no PowerShell:
+
+```powershell
+$body = @{ nome = "Teste telefone" } | ConvertTo-Json
+$contato = Invoke-RestMethod -Method Post -Uri http://localhost:3000/contato -ContentType 'application/json' -Body $body
+$contatoId = $contato.lastInsertRowid
+$body = @{ contato_id = $contatoId; numero = "+55 11 99999-0000"; tipo = "celular" } | ConvertTo-Json
+$telefone = Invoke-RestMethod -Method Post -Uri http://localhost:3000/telefone -ContentType 'application/json' -Body $body
+$telefoneId = $telefone.lastInsertRowid
+Invoke-RestMethod http://localhost:3000/telefone
+Invoke-RestMethod "http://localhost:3000/telefone/$telefoneId"
+$body = @{ contato_id = $contatoId; numero = "011 3333-0000"; tipo = "fixo" } | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri "http://localhost:3000/telefone/$telefoneId" -ContentType 'application/json' -Body $body
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/telefone/$telefoneId"
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/contato/$contatoId"
+```
+
+Esses comandos criam registros reais e os removem ao final.
+
+## Etapa 5 — Categorias e endereços
+
+Os controllers `src/controllers/categoria.ts` e `src/controllers/endereco.ts`
+usam `create`, `listAll`, `listOne`, `updateOne` e `deleteOne`, com SQL
+parametrizado e a conexão existente. Cada tabela tem seu arquivo em `src/routes`,
+registrado em `src/routes/index.ts`, com validação pelo mesmo middleware ArkType.
+
+| Método | Categorias | Endereços | Sucesso |
+| --- | --- | --- | --- |
+| POST | /categoria | /endereco | 201, resultado com lastInsertRowid |
+| GET | /categoria | /endereco | 200, lista de registros |
+| GET | /categoria/:id | /endereco/:id | 200, registro |
+| PUT | /categoria/:id | /endereco/:id | 200, resultado da atualização |
+| DELETE | /categoria/:id | /endereco/:id | 204, sem corpo |
+
+Categorias exigem `nome` como texto não vazio. Endereços exigem `contato_id`
+inteiro positivo de um contato existente, além de `rua`, `cidade` e `estado`
+como textos não vazios. O estado é texto livre, podendo ser sigla ou nome.
+O PUT exige todos os campos e permite transferir um endereço para outro contato.
+Um contato pode ter vários endereços.
+
+Entradas inválidas e contatos associados inexistentes retornam 400.
+Registros inexistentes retornam 404. Excluir uma categoria com contatos
+vinculados retorna 409; é necessário remover a categoria desses contatos,
+trocá-la ou excluir os contatos antes. Excluir um endereço preserva seu contato.
+Não há alterações no banco ou na interface nesta etapa.
+
+Com o servidor iniciado, teste no PowerShell:
+
+```powershell
+$body = @{ nome = "Amigos" } | ConvertTo-Json
+$categoria = Invoke-RestMethod -Method Post -Uri http://localhost:3000/categoria -ContentType 'application/json' -Body $body
+$categoriaId = $categoria.lastInsertRowid
+Invoke-RestMethod http://localhost:3000/categoria
+Invoke-RestMethod "http://localhost:3000/categoria/$categoriaId"
+$body = @{ nome = "Familia" } | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri "http://localhost:3000/categoria/$categoriaId" -ContentType 'application/json' -Body $body
+$body = @{ nome = "Teste endereco"; categoria_id = $categoriaId } | ConvertTo-Json
+$contato = Invoke-RestMethod -Method Post -Uri http://localhost:3000/contato -ContentType 'application/json' -Body $body
+$contatoId = $contato.lastInsertRowid
+$body = @{ contato_id = $contatoId; rua = "Rua A"; cidade = "Campinas"; estado = "SP" } | ConvertTo-Json
+$endereco = Invoke-RestMethod -Method Post -Uri http://localhost:3000/endereco -ContentType 'application/json' -Body $body
+$enderecoId = $endereco.lastInsertRowid
+Invoke-RestMethod http://localhost:3000/endereco
+Invoke-RestMethod "http://localhost:3000/endereco/$enderecoId"
+$body = @{ contato_id = $contatoId; rua = "Rua B"; cidade = "Campinas"; estado = "SP" } | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri "http://localhost:3000/endereco/$enderecoId" -ContentType 'application/json' -Body $body
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/endereco/$enderecoId"
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/contato/$contatoId"
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/categoria/$categoriaId"
+```
+
+Esses comandos criam registros reais e os removem ao final.
 
 ## Executar
 
@@ -157,8 +261,20 @@ Commit da etapa 2:
 feat: cria tabelas e relacionamentos da agenda telefonica
 ```
 
-Commit sugerido para a etapa 3:
+Commit da etapa 3:
 
 ```text
 feat: implementa crud de contatos
+```
+
+Commit sugerido para a etapa 4:
+
+```text
+feat: implementa crud de telefones
+```
+
+Commit sugerido para a etapa 5:
+
+```text
+feat: implementa crud de categorias e enderecos
 ```
